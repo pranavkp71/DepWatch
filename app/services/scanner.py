@@ -1,6 +1,5 @@
 import json
 import re
-from typing import Optional
 
 from app.github import GitHubClient
 
