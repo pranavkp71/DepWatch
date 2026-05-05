@@ -67,3 +67,14 @@ class GitHubClient:
             params={"state": "all", "since": since, "per_page": 100},
         )
         return len(issues) if issues else 0
+
+    async def get_file_content(self, owner: str, repo: str, path: str) -> Optional[str]:
+        """Fetch content of a file from the repository (decoded as UTF-8)."""
+        data = await self._get(f"/repos/{owner}/{repo}/contents/{path}")
+        if data and "content" in data:
+            import base64
+
+            # GitHub encodes content in base64
+            content_encoded = data["content"]
+            return base64.b64decode(content_encoded).decode("utf-8")
+        return None
