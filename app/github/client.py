@@ -78,3 +78,10 @@ class GitHubClient:
             content_encoded = data["content"]
             return base64.b64decode(content_encoded).decode("utf-8")
         return None
+
+    async def search_repo(self, query: str) -> Optional[dict[str, Any]]:
+        """Search for a repository and return the first result."""
+        data = await self._get("/search/repositories", params={"q": query, "per_page": 1})
+        if data and "items" in data and data["items"]:
+            return data["items"][0]
+        return None
