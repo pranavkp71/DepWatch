@@ -98,16 +98,38 @@ class ScoringEngine:
         else:
             review.confidence = "Low"
 
-        # Status Logic (Legacy V2 for now)
-        if no_commits_90d and no_release_120d and low_contributors:
+        # 3. Compute Risk Score (0-10) (Step 5 Implementation)
+        risk_points = 0
+        
+        # Penalize stagnation
+        if no_commits_90d:
+            risk_points += 3
+            
+        if days_since_release is not None and days_since_release > 120:
+            risk_points += 3
+        elif days_since_release is None:
+            # Lack of official releases is a minor signal, not a major risk
+            risk_points += 1
+
+        if low_contributors:
+            risk_points += 2
+            
+        if stagnant_issues:
+            risk_points += 2
+            
+        # Mitigation: Large maintainer base reduces risk
+        if signals.contributor_count >= 10:
+            risk_points = max(0, risk_points - 2)
+
+        review.risk_score = min(10, risk_points)
+
+        # 4. Final Status and Recommendation Assignment
+        if review.risk_score >= 7:
             review.status = HealthStatus.RISKY
-            review.recommendation = "Consider alternative"
-        elif stagnant_issues and low_contributors:
-            review.status = HealthStatus.RISKY
-            review.recommendation = "Consider alternative"
-        elif low_contributors or stagnant_issues or (days_since_commit and days_since_commit > 30):
+            review.recommendation = "Consider replacing this dependency"
+        elif review.risk_score >= 4:
             review.status = HealthStatus.WARNING
-            review.recommendation = "Monitor for activity"
+            review.recommendation = "Monitor this dependency regularly"
         else:
             review.status = HealthStatus.HEALTHY
             review.recommendation = "No action needed"

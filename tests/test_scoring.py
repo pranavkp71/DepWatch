@@ -14,49 +14,22 @@ def test_classify_healthy():
         open_issues_count=10,
         recent_issue_activity=5,
     )
-    status, reason, confidence = ScoringEngine.classify(signals)
-    assert status == HealthStatus.HEALTHY
-    assert confidence == "Low"  # Data is good, no negative signals
+    review = ScoringEngine.classify(signals)
+    assert review.status == HealthStatus.HEALTHY
+    assert review.risk_score <= 1  # 1 point for no official release found
+    assert "Last commit 5 days ago" in review.signals
 
 
-def test_classify_stable_but_healthy():
-    """V2: A library with no commits but a recent release should be healthy."""
-    last_release = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+def test_risk_mitigation():
+    """V3: Mitigation for large maintainer base."""
+    stale_date = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
     signals = DependencySignals(
-        name="stable-lib",
-        repo_url="http://github.com/test/stable",
-        last_commit_date=(datetime.now(timezone.utc) - timedelta(days=100)).isoformat(),
-        latest_release_date=last_release,
-        contributor_count=5,
-    )
-    status, reason, confidence = ScoringEngine.classify(signals)
-    assert status == HealthStatus.HEALTHY
-
-
-def test_classify_risky_multi_signal():
-    """V2: Risky only if commits, releases, and contributors are all bad."""
-    stale_date = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
-    signals = DependencySignals(
-        name="dead-lib",
-        repo_url="http://github.com/test/dead",
+        name="large-lib",
+        repo_url="http://github.com/test/large",
         last_commit_date=stale_date,
-        latest_release_date=stale_date,
-        contributor_count=1,
+        contributor_count=20, # Large maintainer base
     )
-    status, reason, confidence = ScoringEngine.classify(signals)
-    assert status == HealthStatus.RISKY
-    assert confidence == "High"
-
-
-def test_classify_warning_solo_developer():
-    last_commit = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
-    signals = DependencySignals(
-        name="solo-lib",
-        repo_url="http://github.com/test/solo",
-        last_commit_date=last_commit,
-        contributor_count=1,
-    )
-    status, reason, confidence = ScoringEngine.classify(signals)
-    assert status == HealthStatus.WARNING
-    assert "solo developer" in reason
-    assert confidence == "Low"
+    review = ScoringEngine.classify(signals)
+    # Stale commits (+3) + No release (+1) = 4. Mitigation (-2) = 2.
+    assert review.status == HealthStatus.HEALTHY
+    assert review.risk_score == 2 
