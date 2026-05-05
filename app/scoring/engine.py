@@ -70,12 +70,35 @@ class ScoringEngine:
             else:
                 review.signals.append(f"{signals.recent_issue_activity} issues updated recently")
 
-        # Status Logic (Legacy V2 for now, will refine in later steps)
+        # 2. Compute Confidence from Signals (Step 3 Implementation)
+        # We define "agreeing signals" as significant evidence (positive or negative)
+        strong_signals = 0
+        
+        # Negative triggers
         no_commits_90d = days_since_commit is not None and days_since_commit > 90
         no_release_120d = days_since_release is None or days_since_release > 120
         low_contributors = signals.contributor_count < 2
         stagnant_issues = signals.open_issues_count > 50 and signals.recent_issue_activity == 0
+        
+        # Positive triggers
+        recent_commit_30d = days_since_commit is not None and days_since_commit <= 30
+        recent_release_60d = days_since_release is not None and days_since_release <= 60
+        healthy_contributors = signals.contributor_count >= 5
+        
+        # Sum them up
+        strong_signals = sum([
+            no_commits_90d, no_release_120d, low_contributors, stagnant_issues,
+            recent_commit_30d, recent_release_60d, healthy_contributors
+        ])
 
+        if strong_signals >= 3:
+            review.confidence = "High"
+        elif strong_signals == 2:
+            review.confidence = "Medium"
+        else:
+            review.confidence = "Low"
+
+        # Status Logic (Legacy V2 for now)
         if no_commits_90d and no_release_120d and low_contributors:
             review.status = HealthStatus.RISKY
             review.recommendation = "Consider alternative"
