@@ -1,0 +1,1 @@
+"""DepWatch CLI interface."""
