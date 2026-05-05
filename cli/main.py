@@ -57,29 +57,49 @@ async def run_scan(repo_url: str):
 
     console.print(f"📦 Found [bold]{len(dependencies)}[/bold] dependencies. Analyzing health...")
 
-    table = Table(title=f"Health Report for {owner}/{repo}")
-    table.add_column("Dependency", style="cyan")
-    table.add_column("Status", justify="center")
-    table.add_column("Reason", style="dim")
+    results = []
+    counts = {HealthStatus.RISKY: 0, HealthStatus.WARNING: 0, HealthStatus.HEALTHY: 0, HealthStatus.UNKNOWN: 0}
 
     # Analyze in batches or sequentially for MVP
     for dep_name in dependencies:
         with console.status(f"Analyzing {dep_name}..."):
             try:
                 signals = await analyzer.analyze(dep_name)
-                status, reason = engine.classify(signals)
-
-                emoji = "🟢"
-                if status == HealthStatus.RISKY:
-                    emoji = "🔴"
-                elif status == HealthStatus.WARNING:
-                    emoji = "🟡"
-                elif status == HealthStatus.UNKNOWN:
-                    emoji = "⚪"
-
-                table.add_row(dep_name, f"{emoji} {status.value}", reason)
+                status, reason, confidence = engine.classify(signals)
+                counts[status] += 1
+                results.append((dep_name, status, reason, confidence))
             except Exception as e:
-                table.add_row(dep_name, "⚪ Error", str(e))
+                counts[HealthStatus.UNKNOWN] += 1
+                results.append((dep_name, HealthStatus.UNKNOWN, str(e), "Low"))
+
+    console.print()
+    if counts[HealthStatus.RISKY] > 0:
+        console.print(f"⚠️  [bold red]{counts[HealthStatus.RISKY]}[/bold red] risky dependencies found")
+    if counts[HealthStatus.WARNING] > 0:
+        console.print(f"🟡 [bold yellow]{counts[HealthStatus.WARNING]}[/bold yellow] warnings")
+    if counts[HealthStatus.HEALTHY] > 0:
+        console.print(f"🟢 [bold green]{counts[HealthStatus.HEALTHY]}[/bold green] healthy")
+    if counts[HealthStatus.UNKNOWN] > 0:
+        console.print(f"⚪ [bold white]{counts[HealthStatus.UNKNOWN]}[/bold white] unknown")
+    console.print()
+
+    table = Table(title=f"Health Report for {owner}/{repo}")
+    table.add_column("Dependency", style="cyan")
+    table.add_column("Status", justify="center")
+    table.add_column("Reason", style="dim")
+    table.add_column("Confidence", justify="center")
+
+    for dep_name, status, reason, confidence in results:
+        emoji = "🟢"
+        if status == HealthStatus.RISKY:
+            emoji = "🔴"
+        elif status == HealthStatus.WARNING:
+            emoji = "🟡"
+        elif status == HealthStatus.UNKNOWN:
+            emoji = "⚪"
+            
+        conf_color = "green" if confidence == "High" else ("yellow" if confidence == "Medium" else "red")
+        table.add_row(dep_name, f"{emoji} {status.value}", reason, f"[{conf_color}]{confidence}[/{conf_color}]")
 
     console.print(table)
 
