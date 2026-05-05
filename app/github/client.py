@@ -85,3 +85,10 @@ class GitHubClient:
         if data and "items" in data and data["items"]:
             return data["items"][0]
         return None
+
+    async def get_latest_release(self, owner: str, repo: str) -> Optional[str]:
+        """Fetch the date of the latest release. Returns None if no releases exist."""
+        data = await self._get(f"/repos/{owner}/{repo}/releases/latest")
+        if data and "published_at" in data:
+            return data["published_at"]
+        return None
