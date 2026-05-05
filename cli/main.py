@@ -1,14 +1,17 @@
 import asyncio
 import re
-from typing import Optional
+from typing import Optional, List
 
 import typer
-from rich.console import Console
+from rich.console import Console, Group
 from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
 
 from app.github import GitHubClient
 from app.scoring import HealthStatus, ScoringEngine
 from app.services import DependencyAnalyzer, DependencyScanner
+
 
 app = typer.Typer(
     name="depwatch",
@@ -57,7 +60,7 @@ async def run_scan(repo_url: str):
 
     console.print(f"📦 Found [bold]{len(dependencies)}[/bold] dependencies. Analyzing health...")
 
-    results = []
+    reviews = []
     counts = {HealthStatus.RISKY: 0, HealthStatus.WARNING: 0, HealthStatus.HEALTHY: 0, HealthStatus.UNKNOWN: 0}
 
     # Analyze in batches or sequentially for MVP
@@ -65,12 +68,13 @@ async def run_scan(repo_url: str):
         with console.status(f"Analyzing {dep_name}..."):
             try:
                 signals = await analyzer.analyze(dep_name)
-                status, reason, confidence = engine.classify(signals)
-                counts[status] += 1
-                results.append((dep_name, status, reason, confidence))
+                review = engine.classify(signals)
+                counts[review.status] += 1
+                reviews.append((dep_name, review))
             except Exception as e:
                 counts[HealthStatus.UNKNOWN] += 1
-                results.append((dep_name, HealthStatus.UNKNOWN, str(e), "Low"))
+                from app.scoring.engine import HealthReview
+                reviews.append((dep_name, HealthReview(status=HealthStatus.UNKNOWN, signals=[str(e)])))
 
     console.print()
     if counts[HealthStatus.RISKY] > 0:
@@ -83,25 +87,33 @@ async def run_scan(repo_url: str):
         console.print(f"⚪ [bold white]{counts[HealthStatus.UNKNOWN]}[/bold white] unknown")
     console.print()
 
-    table = Table(title=f"Health Report for {owner}/{repo}")
-    table.add_column("Dependency", style="cyan")
-    table.add_column("Status", justify="center")
-    table.add_column("Reason", style="dim")
-    table.add_column("Confidence", justify="center")
+    for dep_name, review in reviews:
+        color = "green"
+        if review.status == HealthStatus.RISKY:
+            color = "red"
+        elif review.status == HealthStatus.WARNING:
+            color = "yellow"
+        elif review.status == HealthStatus.UNKNOWN:
+            color = "white"
 
-    for dep_name, status, reason, confidence in results:
-        emoji = "🟢"
-        if status == HealthStatus.RISKY:
-            emoji = "🔴"
-        elif status == HealthStatus.WARNING:
-            emoji = "🟡"
-        elif status == HealthStatus.UNKNOWN:
-            emoji = "⚪"
-            
-        conf_color = "green" if confidence == "High" else ("yellow" if confidence == "Medium" else "red")
-        table.add_row(dep_name, f"{emoji} {status.value}", reason, f"[{conf_color}]{confidence}[/{conf_color}]")
+        conf_color = "green" if review.confidence == "High" else ("yellow" if review.confidence == "Medium" else "red")
+        
+        # Build signals list
+        signal_text = Text()
+        for s in review.signals:
+            signal_text.append(f"  • {s}\n", style="dim")
 
-    console.print(table)
+        panel_content = Group(
+            Text.assemble(("Status: ", "bold"), (f"{review.status.value}", f"bold {color}")),
+            Text.assemble(("Risk Score: ", "bold"), (f"{review.risk_score}/10", "cyan")),
+            Text.assemble(("Confidence: ", "bold"), (f"{review.confidence}", conf_color)),
+            Text("\nSignals:", style="bold"),
+            signal_text,
+            Text.assemble(("Action: ", "bold"), (f"{review.recommendation}", "italic yellow" if review.status != HealthStatus.HEALTHY else "dim green")),
+        )
+
+        console.print(Panel(panel_content, title=f"[bold]{dep_name}[/bold]", border_style=color, expand=False))
+        console.print()
 
 
 @app.command(name="scan")

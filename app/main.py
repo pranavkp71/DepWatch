@@ -21,8 +21,10 @@ class ScanRequest(BaseModel):
 class DependencyReport(BaseModel):
     name: str
     status: HealthStatus
-    reason: str
+    risk_score: int
     confidence: str
+    signals: List[str]
+    recommendation: str
     repo_url: Optional[str] = None
 
 
@@ -63,19 +65,28 @@ async def scan_repository(request: ScanRequest):
     for dep_name in dependencies:
         try:
             signals = await analyzer.analyze(dep_name)
-            status, reason, confidence = engine.classify(signals)
+            review = engine.classify(signals)
             reports.append(
                 DependencyReport(
-                    name=dep_name, 
-                    status=status, 
-                    reason=reason, 
-                    confidence=confidence,
+                    name=dep_name,
+                    status=review.status,
+                    risk_score=review.risk_score,
+                    confidence=review.confidence,
+                    signals=review.signals,
+                    recommendation=review.recommendation,
                     repo_url=signals.repo_url
                 )
             )
         except Exception:
             reports.append(
-                DependencyReport(name=dep_name, status=HealthStatus.UNKNOWN, reason="Analysis failed", confidence="Low")
+                DependencyReport(
+                    name=dep_name, 
+                    status=HealthStatus.UNKNOWN, 
+                    risk_score=0,
+                    confidence="Low",
+                    signals=["Analysis failed"],
+                    recommendation="Retry later"
+                )
             )
 
     return ScanResponse(owner=owner, repo=repo, dependencies=reports)
