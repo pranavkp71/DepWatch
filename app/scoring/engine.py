@@ -50,13 +50,32 @@ class ScoringEngine:
         days_since_commit = ScoringEngine._parse_days_since(signals.last_commit_date, now)
         days_since_release = ScoringEngine._parse_days_since(signals.latest_release_date, now)
 
-        # Baseline conditions (V2 logic preserved for now, to be refined in next steps)
+        # 1. Collect Signals (Step 2 Implementation)
+        if days_since_commit is not None:
+            review.signals.append(f"Last commit {days_since_commit} days ago")
+        else:
+            review.signals.append("No commit history found")
+
+        if days_since_release is not None:
+            review.signals.append(f"Last release {days_since_release} days ago")
+        else:
+            review.signals.append("No official releases found")
+
+        review.signals.append(f"Contributor count: {signals.contributor_count}")
+        
+        if signals.open_issues_count > 0:
+            review.signals.append(f"Open issues: {signals.open_issues_count}")
+            if signals.recent_issue_activity == 0:
+                review.signals.append("No issue activity in last 30 days")
+            else:
+                review.signals.append(f"{signals.recent_issue_activity} issues updated recently")
+
+        # Status Logic (Legacy V2 for now, will refine in later steps)
         no_commits_90d = days_since_commit is not None and days_since_commit > 90
         no_release_120d = days_since_release is None or days_since_release > 120
         low_contributors = signals.contributor_count < 2
         stagnant_issues = signals.open_issues_count > 50 and signals.recent_issue_activity == 0
 
-        # Initial Status Assignment
         if no_commits_90d and no_release_120d and low_contributors:
             review.status = HealthStatus.RISKY
             review.recommendation = "Consider alternative"
