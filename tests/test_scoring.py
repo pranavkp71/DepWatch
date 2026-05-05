@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.scoring import HealthStatus, ScoringEngine
 from app.services.analyzer import DependencySignals
 
 
 def test_classify_healthy():
-    last_commit = (datetime.utcnow() - timedelta(days=5)).isoformat() + "Z"
+    last_commit = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
     signals = DependencySignals(
         name="test-lib",
         repo_url="http://github.com/test/lib",
@@ -19,7 +19,7 @@ def test_classify_healthy():
 
 
 def test_classify_risky_no_commits():
-    last_commit = (datetime.utcnow() - timedelta(days=100)).isoformat() + "Z"
+    last_commit = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
     signals = DependencySignals(
         name="stale-lib",
         repo_url="http://github.com/test/stale",
@@ -32,7 +32,7 @@ def test_classify_risky_no_commits():
 
 
 def test_classify_warning_low_contributors():
-    last_commit = (datetime.utcnow() - timedelta(days=5)).isoformat() + "Z"
+    last_commit = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
     signals = DependencySignals(
         name="solo-lib",
         repo_url="http://github.com/test/solo",

@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import httpx
@@ -61,7 +61,7 @@ class GitHubClient:
 
     async def get_recent_issue_activity(self, owner: str, repo: str, days: int = 30) -> int:
         """Fetch count of issues updated in the last N days."""
-        since = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         issues = await self._get(
             f"/repos/{owner}/{repo}/issues",
             params={"state": "all", "since": since, "per_page": 100},

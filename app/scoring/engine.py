@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from app.services.analyzer import DependencySignals
@@ -20,10 +20,12 @@ class ScoringEngine:
         if not signals.repo_url:
             return HealthStatus.UNKNOWN, "Repository not found"
 
+        now = datetime.now(timezone.utc)
+
         # 1. Check for Risky (Red)
         if signals.last_commit_date:
-            last_commit_dt = datetime.fromisoformat(signals.last_commit_date.replace("Z", ""))
-            days_since_commit = (datetime.utcnow() - last_commit_dt).days
+            last_commit_dt = datetime.fromisoformat(signals.last_commit_date.replace("Z", "+00:00"))
+            days_since_commit = (now - last_commit_dt).days
             if days_since_commit > 90:
                 return HealthStatus.RISKY, f"No commits in last {days_since_commit} days"
 
@@ -35,8 +37,8 @@ class ScoringEngine:
             return HealthStatus.WARNING, "Low contributor count (< 2)"
 
         if signals.last_commit_date:
-            last_commit_dt = datetime.fromisoformat(signals.last_commit_date.replace("Z", ""))
-            days_since_commit = (datetime.utcnow() - last_commit_dt).days
+            last_commit_dt = datetime.fromisoformat(signals.last_commit_date.replace("Z", "+00:00"))
+            days_since_commit = (now - last_commit_dt).days
             if days_since_commit > 30:
                 return HealthStatus.WARNING, f"Slowing commit activity ({days_since_commit} days since last commit)"
 
