@@ -33,7 +33,7 @@ async def run_scan(repo_url: str):
     """Core logic for scanning a repository."""
     owner, repo = parse_github_url(repo_url)
     if not owner or not repo:
-        console.print("[red]❌ Invalid GitHub URL.[/red] Expected: https://github.com/owner/repo")
+        console.print("[red] Invalid GitHub URL.[/red] Expected: https://github.com/owner/repo")
         raise typer.Exit(1)
 
     # Use a environment variable for token if available
@@ -46,7 +46,7 @@ async def run_scan(repo_url: str):
         try:
             dependencies = await scanner.extract_dependencies(owner, repo)
         except Exception as e:
-            console.print(f"[red]❌ Error fetching dependencies:[/red] {e}")
+            console.print(f"[red] Error fetching dependencies:[/red] {e}")
             raise typer.Exit(1)
 
     if not dependencies:
@@ -88,6 +88,12 @@ async def run_scan(repo_url: str):
 def scan_command(repo_url: str = typer.Argument(..., help="GitHub repository URL to scan")) -> None:
     """Scan a GitHub repository and report dependency health."""
     asyncio.run(run_scan(repo_url))
+
+
+@app.command(name="version")
+def version_command() -> None:
+    """Show the current depwatch version."""
+    console.print("depwatch [bold cyan]v0.1.0[/bold cyan]")
 
 
 def main():
