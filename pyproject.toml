@@ -28,7 +28,7 @@ dev = [
 ]
 
 [project.scripts]
-depwatch = "cli.main:app"
+depwatch = "cli.main:main"
 
 [tool.setuptools.packages.find]
 include = ["app*", "cli*"]

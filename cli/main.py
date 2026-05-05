@@ -84,11 +84,16 @@ async def run_scan(repo_url: str):
     console.print(table)
 
 
-@app.command()
-def scan(repo_url: str = typer.Argument(..., help="GitHub repository URL to scan")) -> None:
+@app.command(name="scan")
+def scan_command(repo_url: str = typer.Argument(..., help="GitHub repository URL to scan")) -> None:
     """Scan a GitHub repository and report dependency health."""
     asyncio.run(run_scan(repo_url))
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the depwatch script."""
     app()
+
+
+if __name__ == "__main__":
+    main()
