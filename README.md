@@ -1,4 +1,4 @@
-# 🔍 DepWatch — Dependency Health Scanner
+# DepWatch — Dependency Health Scanner
 
 > Know *why* your dependencies are healthy or risky — not just that they are.
 
@@ -36,7 +36,7 @@ GITHUB_TOKEN=ghp_your_token_here
 
 ---
 
-## V3 — What's New
+## V1
 
 Each dependency now comes with a **detailed panel** in the CLI:
 
@@ -101,6 +101,3 @@ depwatch/
 
 ---
 
-## License
-
-MIT
