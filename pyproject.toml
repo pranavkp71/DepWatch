@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "depwatch"
+name = "depwatch-cli"
 version = "0.1.0"
 description = "Dependency Health Scanner — check if your dependencies are risky right now."
 readme = "README.md"

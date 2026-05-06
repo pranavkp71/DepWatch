@@ -14,7 +14,7 @@ pip install build twine
 python -m build
 ```
 
-This creates `dist/depwatch-X.Y.Z.tar.gz` and `dist/depwatch-X.Y.Z-py3-none-any.whl`.
+This creates `dist/depwatch_cli-X.Y.Z.tar.gz` and `dist/depwatch_cli-X.Y.Z-py3-none-any.whl`.
 
 ## 2. Test on TestPyPI
 
@@ -24,7 +24,7 @@ twine upload --repository testpypi dist/*
 
 Verify installation:
 ```bash
-pip install --index-url https://test.pypi.org/simple/ depwatch
+pip install --index-url https://test.pypi.org/simple/ depwatch-cli
 ```
 
 ## 3. Publish to PyPI
