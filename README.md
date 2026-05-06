@@ -1,4 +1,4 @@
-# DepWatch — Dependency Health Scanner
+# Dep-Watch — Dependency Health Scanner
 
 > Know *why* your dependencies are healthy or risky — not just that they are.
 
@@ -18,7 +18,7 @@ DepWatch scans a GitHub repository, extracts its dependencies, and delivers a tr
 ### From PyPI
 
 ```bash
-pip install depwatch
+pip install dep-watch
 ```
 
 ### From Source
@@ -28,6 +28,8 @@ git clone https://github.com/pranavkp71/DepWatch.git
 cd DepWatch
 pip install -e ".[dev]"
 ```
+
+This creates `dist/dep_watch-X.Y.Z.tar.gz` and `dist/dep_watch-X.Y.Z-py3-none-any.whl`.
 
 ## Usage
 
