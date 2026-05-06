@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional, Any, List
+from typing import List, Optional
 
 from app.services.analyzer import DependencySignals
 
@@ -62,7 +62,7 @@ class ScoringEngine:
             review.signals.append("No official releases found")
 
         review.signals.append(f"Contributor count: {signals.contributor_count}")
-        
+
         if signals.open_issues_count > 0:
             review.signals.append(f"Open issues: {signals.open_issues_count}")
             if signals.recent_issue_activity == 0:
@@ -73,18 +73,18 @@ class ScoringEngine:
         # 2. Compute Confidence from Signals (Step 3 Implementation)
         # We define "agreeing signals" as significant evidence (positive or negative)
         strong_signals = 0
-        
+
         # Negative triggers
         no_commits_90d = days_since_commit is not None and days_since_commit > 90
         no_release_120d = days_since_release is None or days_since_release > 120
         low_contributors = signals.contributor_count < 2
         stagnant_issues = signals.open_issues_count > 50 and signals.recent_issue_activity == 0
-        
+
         # Positive triggers
         recent_commit_30d = days_since_commit is not None and days_since_commit <= 30
         recent_release_60d = days_since_release is not None and days_since_release <= 60
         healthy_contributors = signals.contributor_count >= 5
-        
+
         # Sum them up
         strong_signals = sum([
             no_commits_90d, no_release_120d, low_contributors, stagnant_issues,
@@ -100,11 +100,11 @@ class ScoringEngine:
 
         # 3. Compute Risk Score (0-10) (Step 5 Implementation)
         risk_points = 0
-        
+
         # Penalize stagnation
         if no_commits_90d:
             risk_points += 3
-            
+
         if days_since_release is not None and days_since_release > 120:
             risk_points += 3
         elif days_since_release is None:
@@ -113,10 +113,10 @@ class ScoringEngine:
 
         if low_contributors:
             risk_points += 2
-            
+
         if stagnant_issues:
             risk_points += 2
-            
+
         # Mitigation: Large maintainer base reduces risk
         if signals.contributor_count >= 10:
             risk_points = max(0, risk_points - 2)

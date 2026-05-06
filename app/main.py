@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, HttpUrl
@@ -80,8 +80,8 @@ async def scan_repository(request: ScanRequest):
         except Exception:
             reports.append(
                 DependencyReport(
-                    name=dep_name, 
-                    status=HealthStatus.UNKNOWN, 
+                    name=dep_name,
+                    status=HealthStatus.UNKNOWN,
                     risk_score=0,
                     confidence="Low",
                     signals=["Analysis failed"],
