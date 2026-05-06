@@ -32,4 +32,4 @@ def test_risk_mitigation():
     review = ScoringEngine.classify(signals)
     # Stale commits (+3) + No release (+1) = 4. Mitigation (-2) = 2.
     assert review.status == HealthStatus.HEALTHY
-    assert review.risk_score == 2 
+    assert review.risk_score == 2

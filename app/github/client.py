@@ -47,11 +47,17 @@ class GitHubClient:
         # Using a trick: per_page=1 and looking at the 'Link' header would be better,
         # but for MVP we'll just fetch a small list or use the 'size' if available.
         # GitHub stats API is better for this.
-        contributors = await self._get(f"/repos/{owner}/{repo}/contributors", params={"per_page": 1})
+        contributors = await self._get(
+            f"/repos/{owner}/{repo}/contributors",
+            params={"per_page": 1},
+        )
         # Note: This is simplified. Real logic should check headers for total count.
         # But per-page=1 doesn't give total count easily without Link header parsing.
         # For MVP, we'll fetch up to 100 to see if it's "low".
-        contributors = await self._get(f"/repos/{owner}/{repo}/contributors", params={"per_page": 100})
+        contributors = await self._get(
+            f"/repos/{owner}/{repo}/contributors",
+            params={"per_page": 100},
+        )
         return len(contributors) if contributors else 0
 
     async def get_open_issues_count(self, owner: str, repo: str) -> int:

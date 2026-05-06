@@ -1,17 +1,15 @@
 import asyncio
 import re
-from typing import Optional, List
+from typing import Optional
 
 import typer
 from rich.console import Console, Group
-from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 
 from app.github import GitHubClient
 from app.scoring import HealthStatus, ScoringEngine
 from app.services import DependencyAnalyzer, DependencyScanner
-
 
 app = typer.Typer(
     name="depwatch",
@@ -61,7 +59,12 @@ async def run_scan(repo_url: str):
     console.print(f"📦 Found [bold]{len(dependencies)}[/bold] dependencies. Analyzing health...")
 
     reviews = []
-    counts = {HealthStatus.RISKY: 0, HealthStatus.WARNING: 0, HealthStatus.HEALTHY: 0, HealthStatus.UNKNOWN: 0}
+    counts = {
+        HealthStatus.RISKY: 0,
+        HealthStatus.WARNING: 0,
+        HealthStatus.HEALTHY: 0,
+        HealthStatus.UNKNOWN: 0,
+    }
 
     # Analyze in batches or sequentially for MVP
     for dep_name in dependencies:
@@ -74,11 +77,17 @@ async def run_scan(repo_url: str):
             except Exception as e:
                 counts[HealthStatus.UNKNOWN] += 1
                 from app.scoring.engine import HealthReview
-                reviews.append((dep_name, HealthReview(status=HealthStatus.UNKNOWN, signals=[str(e)])))
+
+                unknown = HealthReview(
+                    status=HealthStatus.UNKNOWN,
+                    signals=[str(e)],
+                )
+                reviews.append((dep_name, unknown))
 
     console.print()
     if counts[HealthStatus.RISKY] > 0:
-        console.print(f"⚠️  [bold red]{counts[HealthStatus.RISKY]}[/bold red] risky dependencies found")
+        risky = counts[HealthStatus.RISKY]
+        console.print(f"⚠️  [bold red]{risky}[/bold red] risky")
     if counts[HealthStatus.WARNING] > 0:
         console.print(f"🟡 [bold yellow]{counts[HealthStatus.WARNING]}[/bold yellow] warnings")
     if counts[HealthStatus.HEALTHY] > 0:
@@ -96,8 +105,9 @@ async def run_scan(repo_url: str):
         elif review.status == HealthStatus.UNKNOWN:
             color = "white"
 
-        conf_color = "green" if review.confidence == "High" else ("yellow" if review.confidence == "Medium" else "red")
-        
+        conf_map = {"High": "green", "Medium": "yellow"}
+        conf_color = conf_map.get(review.confidence, "red")
+
         # Build signals list
         signal_text = Text()
         for s in review.signals:
@@ -109,10 +119,23 @@ async def run_scan(repo_url: str):
             Text.assemble(("Confidence: ", "bold"), (f"{review.confidence}", conf_color)),
             Text("\nSignals:", style="bold"),
             signal_text,
-            Text.assemble(("Action: ", "bold"), (f"{review.recommendation}", "italic yellow" if review.status != HealthStatus.HEALTHY else "dim green")),
+            Text.assemble(
+                ("Action: ", "bold"),
+                (
+                    f"{review.recommendation}",
+                    "italic yellow"
+                    if review.status != HealthStatus.HEALTHY
+                    else "dim green",
+                ),
+            ),
         )
 
-        console.print(Panel(panel_content, title=f"[bold]{dep_name}[/bold]", border_style=color, expand=False))
+        console.print(Panel(
+            panel_content,
+            title=f"[bold]{dep_name}[/bold]",
+            border_style=color,
+            expand=False,
+        ))
         console.print()
 
 
