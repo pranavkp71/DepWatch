@@ -12,6 +12,30 @@ license = {text = "MIT"}
 authors = [
     {name = "Pranav"},
 ]
+keywords = [
+    "dependency",
+    "health",
+    "scanner",
+    "github",
+    "risk",
+    "security",
+    "cli",
+    "devtools",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
 dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
@@ -25,7 +49,15 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
+    "build",
+    "twine",
 ]
+
+[project.urls]
+Homepage = "https://github.com/pranavkp71/DepWatch"
+Repository = "https://github.com/pranavkp71/DepWatch"
+Issues = "https://github.com/pranavkp71/DepWatch/issues"
+Changelog = "https://github.com/pranavkp71/DepWatch/blob/main/CHANGELOG.md"
 
 [project.scripts]
 depwatch = "cli.main:main"
@@ -36,6 +68,9 @@ include = ["app*", "cli*"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
