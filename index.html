@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="DepWatch — Dependency health scanner for open-source projects. Know why your dependencies are healthy or risky — not just that they are.">
+<meta property="og:title" content="DepWatch — Dependency Health Scanner">
+<meta property="og:description" content="Multi-signal analysis. Risk scores. Actionable recommendations.">
+<title>DepWatch — Dependency Health Scanner</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --c-bg: #0e1210;
+  --c-bg2: #131815;
+  --c-bg3: #171d1a;
+  --c-bg4: #1c2320;
+  --c-surface: #1f2620;
+  --c-surface2: #263028;
+  --c-border: rgba(120,160,130,0.08);
+  --c-border2: rgba(120,160,130,0.14);
+  --c-border3: rgba(120,160,130,0.22);
+
+  --c-text: #e8ede9;
+  --c-text2: #9db5a2;
+  --c-text3: #637a6a;
+  --c-text4: #3d5045;
+
+  --c-green: #5aab7a;
+  --c-green2: #3d8a5d;
+  --c-green3: #2a5e3e;
+  --c-green-dim: rgba(90,171,122,0.12);
+  --c-green-glow: rgba(90,171,122,0.06);
+
+  --c-amber: #c89a4e;
+  --c-amber-dim: rgba(200,154,78,0.10);
+
+  --c-red: #c0645a;
+  --c-red-dim: rgba(192,100,90,0.10);
+
+  --c-slate: #7a9e8a;
+  --c-moss: #4a6e58;
+
+  --font-display: 'Syne', sans-serif;
+  --font-serif: 'Instrument Serif', serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'Syne', sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── NOISE TEXTURE OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.5;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--c-bg); }
+::-webkit-scrollbar-thumb { background: var(--c-bg4); border-radius: 3px; }
+
+/* ── SELECTION ── */
+::selection { background: var(--c-green3); color: var(--c-text); }
+
+/* ── UTILITY ── */
+.container { max-width: 1140px; margin: 0 auto; padding: 0 28px; }
+.section { padding: 120px 0; }
+.label-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--c-green); border: 1px solid var(--c-green-dim);
+  background: var(--c-green-glow);
+  padding: 5px 12px; border-radius: 100px;
+}
+.label-tag::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 6px var(--c-green); }
+
+/* ── CANVAS BACKGROUND ── */
+#bg-canvas {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 0; opacity: 0.4;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 18px 0;
+  transition: background var(--transition), border-bottom var(--transition);
+}
+nav.scrolled {
+  background: rgba(14,18,16,0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--c-border);
+}
+.nav-inner { display: flex; align-items: center; justify-content: space-between; }
+.nav-logo {
+  font-family: var(--font-display); font-size: 18px; font-weight: 700;
+  color: var(--c-text); text-decoration: none; letter-spacing: -0.02em;
+  display: flex; align-items: center; gap: 10px;
+}
+.nav-logo-icon {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: linear-gradient(135deg, var(--c-green3) 0%, var(--c-green2) 100%);
+  border: 1px solid var(--c-green-dim);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-logo-icon svg { width: 14px; height: 14px; }
+.nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
+.nav-links a { color: var(--c-text3); text-decoration: none; font-size: 13px; font-weight: 500; transition: color var(--transition); }
+.nav-links a:hover { color: var(--c-text); }
+.nav-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; font-family: var(--font-display);
+  color: var(--c-bg); background: var(--c-green);
+  padding: 8px 18px; border-radius: 8px; text-decoration: none;
+  transition: background var(--transition), box-shadow var(--transition);
+  border: none; cursor: pointer;
+}
+.nav-cta:hover { background: #6dbf8e; box-shadow: 0 0 24px rgba(90,171,122,0.25); }
+
+/* ── HERO ── */
+.hero {
+  position: relative; z-index: 1;
+  min-height: 100vh; display: flex; align-items: center;
+  padding: 120px 0 80px;
+}
+.hero-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.hero-label { margin-bottom: 28px; }
+.hero-title {
+  font-family: var(--font-display); font-size: clamp(38px, 5vw, 62px);
+  font-weight: 800; line-height: 1.08; letter-spacing: -0.035em;
+  color: var(--c-text); margin-bottom: 12px;
+}
+.hero-title em {
+  font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  color: var(--c-green);
+}
+.hero-subtitle {
+  font-size: 17px; color: var(--c-text2); line-height: 1.65;
+  max-width: 440px; margin-bottom: 40px; font-weight: 400;
+}
+.hero-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 48px; }
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-size: 14px; font-weight: 700;
+  color: var(--c-bg); background: var(--c-green);
+  padding: 12px 24px; border-radius: 9px; text-decoration: none;
+  border: none; cursor: pointer;
+  transition: all var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(90,171,122,0.2);
+}
+.btn-primary:hover { background: #6dbf8e; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(90,171,122,0.3); }
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  color: var(--c-text2); background: transparent;
+  padding: 12px 20px; border-radius: 9px; text-decoration: none;
+  border: 1px solid var(--c-border2); cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-ghost:hover { color: var(--c-text); border-color: var(--c-border3); background: var(--c-surface); }
+
+.hero-install {
+  display: inline-flex; align-items: center; gap: 12px;
+  background: var(--c-bg2); border: 1px solid var(--c-border2);
+  border-radius: 10px; padding: 12px 18px;
+  font-family: var(--font-mono); font-size: 14px;
+  color: var(--c-text2);
+  position: relative; overflow: hidden;
+}
+.hero-install::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, var(--c-green) 0%, var(--c-moss) 100%);
+}
+.hero-install .prompt { color: var(--c-green); font-weight: 500; }
+.hero-install .cmd { color: var(--c-text); }
+.hero-install-copy {
+  margin-left: auto; cursor: pointer; color: var(--c-text3);
+  background: none; border: none; font-size: 12px;
+  transition: color var(--transition); padding: 2px;
+}
+.hero-install-copy:hover { color: var(--c-green); }
+.hero-stats { display: flex; gap: 32px; }
+.hero-stat-num {
+  font-family: var(--font-display); font-size: 22px; font-weight: 800;
+  color: var(--c-text); letter-spacing: -0.03em;
+}
+.hero-stat-label { font-size: 12px; color: var(--c-text3); font-weight: 400; margin-top: 2px; }
+
+/* ── TERMINAL ── */
+.terminal-wrap {
+  position: relative;
+  background: var(--c-bg2);
+  border: 1px solid var(--c-border2);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+}
+.terminal-wrap::before {
+  content: '';
+  position: absolute; inset: -1px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, rgba(90,171,122,0.12) 0%, transparent 50%, rgba(200,154,78,0.06) 100%);
+  z-index: -1;
+}
+.terminal-titlebar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 13px 18px;
+  background: var(--c-bg3);
+  border-bottom: 1px solid var(--c-border);
+}
+.terminal-dot { width: 11px; height: 11px; border-radius: 50%; }
+.terminal-dot.red { background: #ff5f57; }
+.terminal-dot.yellow { background: #febc2e; }
+.terminal-dot.green { background: #28c840; }
+.terminal-title { font-family: var(--font-mono); font-size: 12px; color: var(--c-text3); margin-left: auto; margin-right: auto; }
+.terminal-body { padding: 24px 20px; font-family: var(--font-mono); font-size: 13px; line-height: 1.7; min-height: 340px; }
+.t-line { opacity: 0; transform: translateY(4px); animation: tline 0.15s ease forwards; }
+.t-prompt { color: var(--c-green); }
+.t-cmd { color: var(--c-text); }
+.t-url { color: #7ab8e8; }
+.t-dim { color: var(--c-text3); }
+.t-section { color: var(--c-text2); margin-top: 4px; }
+.t-healthy { color: var(--c-green); }
+.t-warning { color: var(--c-amber); }
+.t-risky { color: var(--c-red); }
+.t-bold { font-weight: 500; }
+.t-cursor { display: inline-block; width: 8px; height: 14px; background: var(--c-green); animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 2px; }
+.t-panel {
+  margin: 6px 0;
+  border: 1px solid var(--c-border2); border-radius: 6px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.015);
+}
+.t-panel-header { color: var(--c-text2); margin-bottom: 4px; }
+
+@keyframes tline { to { opacity: 1; transform: translateY(0); } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ── SIGNAL PULSE DIVIDER ── */
+.signal-divider {
+  position: relative; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--c-border2) 50%, transparent 100%);
+  overflow: visible;
+  margin: 0;
+}
+.signal-pulse {
+  position: absolute; top: 50%; left: -20px;
+  width: 6px; height: 6px; margin-top: -3px;
+  border-radius: 50%; background: var(--c-green);
+  box-shadow: 0 0 8px var(--c-green);
+  animation: pulse-travel 4s linear infinite;
+}
+@keyframes pulse-travel {
+  0% { left: -20px; opacity: 0; }
+  5% { opacity: 1; }
+  95% { opacity: 1; }
+  100% { left: calc(100% + 20px); opacity: 0; }
+}
+
+/* ── WHY SECTION ── */
+.why-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.why-visual { position: relative; height: 360px; }
+.why-text .section-label { margin-bottom: 20px; }
+.section-eyebrow {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--c-text3); margin-bottom: 16px;
+}
+.section-title {
+  font-family: var(--font-display); font-size: clamp(28px, 3.5vw, 42px);
+  font-weight: 800; letter-spacing: -0.03em; line-height: 1.1;
+  color: var(--c-text); margin-bottom: 20px;
+}
+.section-title em { font-family: var(--font-serif); font-style: italic; font-weight: 400; color: var(--c-green); }
+.section-body { font-size: 16px; color: var(--c-text2); line-height: 1.7; max-width: 480px; }
+
+/* ── DECAY BARS ── */
+.decay-card {
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
+}
+.decay-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.decay-pkg { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--c-text); }
+.decay-badge {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  padding: 3px 9px; border-radius: 100px;
+}
+.badge-healthy { background: var(--c-green-dim); color: var(--c-green); border: 1px solid rgba(90,171,122,0.2); }
+.badge-warning { background: var(--c-amber-dim); color: var(--c-amber); border: 1px solid rgba(200,154,78,0.2); }
+.badge-risky { background: var(--c-red-dim); color: var(--c-red); border: 1px solid rgba(192,100,90,0.2); }
+.decay-bar { height: 4px; background: var(--c-bg4); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+.decay-fill { height: 100%; border-radius: 2px; transition: width 1.4s cubic-bezier(0.4,0,0.2,1); width: 0; }
+.fill-healthy { background: linear-gradient(90deg, var(--c-green3), var(--c-green)); }
+.fill-warning { background: linear-gradient(90deg, #8a6420, var(--c-amber)); }
+.fill-risky { background: linear-gradient(90deg, #7a2020, var(--c-red)); }
+.decay-meta { font-family: var(--font-mono); font-size: 11px; color: var(--c-text3); }
+
+/* ── FEATURES GRID ── */
+.features-section { position: relative; z-index: 1; }
+.features-header { text-align: center; max-width: 600px; margin: 0 auto 64px; }
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--c-border); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--c-border); }
+.feature-cell {
+  background: var(--c-bg); padding: 36px 32px;
+  transition: background var(--transition);
+  position: relative; overflow: hidden;
+}
+.feature-cell:hover { background: var(--c-bg2); }
+.feature-cell::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--c-green-dim), transparent);
+  opacity: 0; transition: opacity var(--transition);
+}
+.feature-cell:hover::after { opacity: 1; }
+.feature-icon {
+  width: 36px; height: 36px; border-radius: 9px;
+  border: 1px solid var(--c-border2);
+  background: var(--c-surface);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px; color: var(--c-green);
+}
+.feature-icon svg { width: 18px; height: 18px; }
+.feature-title { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--c-text); margin-bottom: 10px; letter-spacing: -0.01em; }
+.feature-desc { font-size: 14px; color: var(--c-text3); line-height: 1.6; }
+.feature-cell.wide { grid-column: span 2; }
+.feature-cell.wide .feature-content { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
+.feature-score-demo { background: var(--c-bg3); border-radius: 10px; border: 1px solid var(--c-border); padding: 16px; }
+.score-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.score-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.score-label { font-family: var(--font-mono); font-size: 12px; color: var(--c-text2); flex: 1; }
+.score-bar-wrap { width: 80px; height: 3px; background: var(--c-bg4); border-radius: 2px; overflow: hidden; }
+.score-bar { height: 100%; border-radius: 2px; }
+.score-val { font-family: var(--font-mono); font-size: 11px; color: var(--c-text3); min-width: 24px; text-align: right; }
+
+/* ── HOW IT WORKS ── */
+.how-section { position: relative; z-index: 1; }
+.how-header { text-align: center; max-width: 560px; margin: 0 auto 72px; }
+.how-steps { position: relative; }
+.how-steps-line {
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+  background: linear-gradient(180deg, transparent 0%, var(--c-border2) 15%, var(--c-border2) 85%, transparent 100%);
+  transform: translateX(-50%);
+}
+.how-step {
+  display: grid; grid-template-columns: 1fr 60px 1fr; gap: 0; align-items: center;
+  margin-bottom: 60px; position: relative;
+}
+.how-step:last-child { margin-bottom: 0; }
+.how-step-content { padding: 0 40px; }
+.how-step-content.right { text-align: right; }
+.how-step-num {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--c-border2); background: var(--c-bg2);
+  font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  color: var(--c-green); position: relative; z-index: 1;
+  margin: 0 auto;
+}
+.how-step-num::before {
+  content: '';
+  position: absolute; inset: -6px;
+  border-radius: 50%; border: 1px solid var(--c-green-dim);
+  animation: ring-pulse 3s ease-in-out infinite;
+}
+@keyframes ring-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+.how-step-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--c-text); margin-bottom: 8px; letter-spacing: -0.02em; }
+.how-step-desc { font-size: 14px; color: var(--c-text3); line-height: 1.65; }
+.how-step-tag {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--c-text3); border: 1px solid var(--c-border);
+  padding: 3px 10px; border-radius: 4px; margin-bottom: 12px;
+}
+
+/* ── SCORING TABLE ── */
+.scoring-section { z-index: 1; position: relative; }
+.scoring-header { max-width: 560px; margin-bottom: 56px; }
+.scoring-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.score-table-wrap {
+  background: var(--c-bg2); border: 1px solid var(--c-border);
+  border-radius: 14px; overflow: hidden;
+}
+.score-table-head {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--c-border);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--c-text3);
+}
+.score-table-body { padding: 6px 0; }
+.score-table-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--c-border);
+  transition: background var(--transition);
+}
+.score-table-row:last-child { border-bottom: none; }
+.score-table-row:hover { background: var(--c-surface); }
+.score-table-icon { font-size: 14px; flex-shrink: 0; }
+.score-table-factor { font-size: 13px; color: var(--c-text2); flex: 1; line-height: 1.4; }
+.score-table-pts {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  padding: 2px 8px; border-radius: 4px;
+}
+.pts-add { background: var(--c-red-dim); color: var(--c-red); }
+.pts-sub { background: var(--c-green-dim); color: var(--c-green); }
+
+.confidence-cards { display: flex; flex-direction: column; gap: 12px; }
+.confidence-card {
+  background: var(--c-bg2); border: 1px solid var(--c-border);
+  border-radius: 12px; padding: 18px 20px;
+}
+.confidence-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.confidence-level { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--c-text); }
+.confidence-signals { font-family: var(--font-mono); font-size: 11px; color: var(--c-text3); }
+.confidence-bar { height: 3px; background: var(--c-bg4); border-radius: 2px; overflow: hidden; }
+.confidence-fill { height: 100%; border-radius: 2px; transition: width 1.4s cubic-bezier(0.4,0,0.2,1); width: 0; }
+.conf-high .confidence-fill { background: var(--c-green); width: 90%; }
+.conf-med .confidence-fill { background: var(--c-amber); width: 55%; }
+.conf-low .confidence-fill { background: var(--c-red); width: 25%; }
+.confidence-desc { margin-top: 10px; font-size: 12px; color: var(--c-text3); }
+
+/* ── OPEN SOURCE ── */
+.oss-section { z-index: 1; position: relative; }
+.oss-card {
+  background: var(--c-bg2); border: 1px solid var(--c-border2);
+  border-radius: 20px; padding: 60px;
+  position: relative; overflow: hidden;
+}
+.oss-card::before {
+  content: '';
+  position: absolute; top: 0; right: 0; width: 300px; height: 300px;
+  background: radial-gradient(circle at center, rgba(90,171,122,0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+.oss-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.oss-text .section-title { margin-bottom: 16px; }
+.oss-body { font-size: 15px; color: var(--c-text2); line-height: 1.7; margin-bottom: 32px; }
+.oss-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 36px; }
+.oss-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  color: var(--c-text2); border: 1px solid var(--c-border2);
+  background: var(--c-surface); padding: 6px 14px; border-radius: 8px;
+}
+.oss-badge-icon { width: 14px; height: 14px; color: var(--c-green); }
+.oss-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.oss-visual { position: relative; }
+.contrib-graph { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
+.contrib-label {
+  font-family: var(--font-mono); font-size: 10px; color: var(--c-text3);
+  margin-bottom: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.contrib-cell { height: 14px; border-radius: 2px; background: var(--c-bg4); }
+
+/* ── CTA ── */
+.cta-section {
+  z-index: 1; position: relative;
+  padding: 80px 0 120px;
+}
+.cta-inner {
+  text-align: center;
+  border: 1px solid var(--c-border2); border-radius: 24px;
+  padding: 80px 60px;
+  background: var(--c-bg2);
+  position: relative; overflow: hidden;
+}
+.cta-inner::before {
+  content: '';
+  position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%);
+  width: 400px; height: 200px;
+  background: radial-gradient(ellipse, rgba(90,171,122,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta-title { font-family: var(--font-display); font-size: clamp(28px, 4vw, 48px); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 18px; }
+.cta-sub { font-size: 16px; color: var(--c-text2); max-width: 420px; margin: 0 auto 36px; line-height: 1.6; }
+.cta-actions { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--c-border); padding: 32px 0;
+  position: relative; z-index: 1;
+}
+.footer-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.footer-brand { font-family: var(--font-mono); font-size: 13px; color: var(--c-text3); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-size: 13px; color: var(--c-text3); text-decoration: none; transition: color var(--transition); }
+.footer-links a:hover { color: var(--c-text2); }
+.footer-tagline { font-family: var(--font-mono); font-size: 11px; color: var(--c-text4); letter-spacing: 0.05em; }
+
+/* ── REVEAL ANIMATIONS ── */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ── MOBILE ── */
+@media (max-width: 900px) {
+  .nav-links { display: none; }
+  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+  .why-grid { grid-template-columns: 1fr; }
+  .features-grid { grid-template-columns: 1fr; }
+  .feature-cell.wide { grid-column: span 1; }
+  .feature-cell.wide .feature-content { grid-template-columns: 1fr; }
+  .how-step { grid-template-columns: 40px 1fr; }
+  .how-step-content.right { order: 3; text-align: left; }
+  .how-step-num { order: 1; margin: 0; }
+  .how-step-content:not(.right) { order: 2; padding-left: 20px; }
+  .how-steps-line { left: 20px; transform: none; }
+  .scoring-layout { grid-template-columns: 1fr; }
+  .oss-inner { grid-template-columns: 1fr; }
+  .oss-card { padding: 36px 28px; }
+  .cta-inner { padding: 48px 28px; }
+  .section { padding: 80px 0; }
+}
+
+@media (max-width: 540px) {
+  .hero-stats { flex-direction: column; gap: 16px; }
+  .hero-title { font-size: 32px; }
+  .section-title { font-size: 26px; }
+  .cta-title { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- NAV -->
+<nav id="navbar">
+  <div class="container nav-inner">
+    <a href="#" class="nav-logo">
+      <span class="nav-logo-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="color:#5aab7a;">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+      </span>
+      DepWatch
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#scoring">Scoring</a></li>
+      <li><a href="#oss">Open Source</a></li>
+    </ul>
+    <a href="https://github.com/pranavkp71/DepWatch" class="nav-cta" target="_blank">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-left">
+        <div class="hero-label reveal">
+          <span class="label-tag">Dependency Intelligence</span>
+        </div>
+        <h1 class="hero-title reveal reveal-delay-1">
+          Know when your<br>deps start <em>drifting.</em>
+        </h1>
+        <p class="hero-subtitle reveal reveal-delay-2">
+          DepWatch scans any GitHub repository and delivers transparent health reports — risk scores, evidence signals, and actionable recommendations for every dependency.
+        </p>
+        <div class="hero-actions reveal reveal-delay-3">
+          <a href="https://github.com/pranavkp71/DepWatch" class="btn-primary" target="_blank">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" fill="currentColor" stroke="none"/></svg>
+            Star on GitHub
+          </a>
+          <a href="#how" class="btn-ghost">See how it works →</a>
+        </div>
+        <div class="hero-install reveal reveal-delay-3">
+          <span class="prompt">$</span>
+          <span class="cmd" id="install-cmd">pip install depwatch-cli</span>
+          <button class="hero-install-copy" onclick="copyInstall()" title="Copy">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </div>
+        <div class="hero-stats reveal reveal-delay-4">
+          <div>
+            <div class="hero-stat-num">3+</div>
+            <div class="hero-stat-label">Signal types</div>
+          </div>
+          <div>
+            <div class="hero-stat-num">0–10</div>
+            <div class="hero-stat-label">Risk score scale</div>
+          </div>
+          <div>
+            <div class="hero-stat-num">MIT</div>
+            <div class="hero-stat-label">Open source</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-right reveal reveal-delay-2">
+        <div class="terminal-wrap">
+          <div class="terminal-titlebar">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+            <span class="terminal-title">depwatch — bash</span>
+          </div>
+          <div class="terminal-body" id="terminal-body">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="signal-divider container"><div class="signal-pulse"></div></div>
+
+<!-- WHY -->
+<section class="section" id="why">
+  <div class="container">
+    <div class="why-grid">
+      <div class="why-visual reveal">
+        <div id="decay-list">
+          <div class="decay-card">
+            <div class="decay-header">
+              <span class="decay-pkg">pydantic</span>
+              <span class="decay-badge badge-healthy">HEALTHY · 0/10</span>
+            </div>
+            <div class="decay-bar"><div class="decay-fill fill-healthy" data-width="8"></div></div>
+            <div class="decay-meta">Last commit: 0d ago · Contributors: 100+</div>
+          </div>
+          <div class="decay-card">
+            <div class="decay-header">
+              <span class="decay-pkg">unmaintained-sdk</span>
+              <span class="decay-badge badge-risky">RISKY · 9/10</span>
+            </div>
+            <div class="decay-bar"><div class="decay-fill fill-risky" data-width="90"></div></div>
+            <div class="decay-meta">Last commit: 340d ago · Contributors: 1</div>
+          </div>
+          <div class="decay-card">
+            <div class="decay-header">
+              <span class="decay-pkg">legacy-parser</span>
+              <span class="decay-badge badge-warning">WARNING · 5/10</span>
+            </div>
+            <div class="decay-bar"><div class="decay-fill fill-warning" data-width="50"></div></div>
+            <div class="decay-meta">Last release: 130d ago · Open issues: 50+</div>
+          </div>
+          <div class="decay-card">
+            <div class="decay-header">
+              <span class="decay-pkg">requests</span>
+              <span class="decay-badge badge-healthy">HEALTHY · 1/10</span>
+            </div>
+            <div class="decay-bar"><div class="decay-fill fill-healthy" data-width="10"></div></div>
+            <div class="decay-meta">Last release: 12d ago · Contributors: 50+</div>
+          </div>
+        </div>
+      </div>
+      <div class="why-text">
+        <div class="label-tag reveal" style="margin-bottom:24px;">The Problem</div>
+        <h2 class="section-title reveal reveal-delay-1">Hidden risk in<br><em>plain sight.</em></h2>
+        <p class="section-body reveal reveal-delay-2">
+          Dependencies become unmaintained silently. There's no alarm when the last commit was eight months ago, or when a library's sole maintainer stopped responding. Your build stays green while technical debt accumulates.
+        </p>
+        <br>
+        <p class="section-body reveal reveal-delay-3">
+          DepWatch surfaces that invisible drift — before it becomes a CVE, a breaking change, or a production incident.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="signal-divider container"><div class="signal-pulse" style="animation-delay:-2s;"></div></div>
+
+<!-- FEATURES -->
+<section class="section features-section" id="features">
+  <div class="container">
+    <div class="features-header reveal">
+      <div class="label-tag" style="margin-bottom:20px;">Capabilities</div>
+      <h2 class="section-title" style="text-align:center;">Built for<br><em>signal fidelity.</em></h2>
+    </div>
+
+    <div class="features-grid reveal reveal-delay-1">
+      <div class="feature-cell wide">
+        <div class="feature-content">
+          <div>
+            <div class="feature-icon">
+              <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <h3 class="feature-title">Multi-signal analysis</h3>
+            <p class="feature-desc">Commit history, release cadence, contributor count, and issue activity — combined into one coherent health signal that reflects true maintenance state.</p>
+          </div>
+          <div class="feature-score-demo">
+            <div class="score-row">
+              <span class="score-dot" style="background:var(--c-green);"></span>
+              <span class="score-label">pydantic</span>
+              <div class="score-bar-wrap"><div class="score-bar" style="width:8%;background:var(--c-green);"></div></div>
+              <span class="score-val">0/10</span>
+            </div>
+            <div class="score-row">
+              <span class="score-dot" style="background:var(--c-amber);"></span>
+              <span class="score-label">click</span>
+              <div class="score-bar-wrap"><div class="score-bar" style="width:40%;background:var(--c-amber);"></div></div>
+              <span class="score-val">4/10</span>
+            </div>
+            <div class="score-row">
+              <span class="score-dot" style="background:var(--c-red);"></span>
+              <span class="score-label">old-utils</span>
+              <div class="score-bar-wrap"><div class="score-bar" style="width:80%;background:var(--c-red);"></div></div>
+              <span class="score-val">8/10</span>
+            </div>
+            <div class="score-row">
+              <span class="score-dot" style="background:var(--c-green);"></span>
+              <span class="score-label">httpx</span>
+              <div class="score-bar-wrap"><div class="score-bar" style="width:10%;background:var(--c-green);"></div></div>
+              <span class="score-val">1/10</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-cell">
+        <div class="feature-icon">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3 class="feature-title">Confidence levels</h3>
+        <p class="feature-desc">High / Medium / Low based on how many signals agree. Not all risk is equal — DepWatch tells you how sure it is.</p>
+      </div>
+
+      <div class="feature-cell">
+        <div class="feature-icon">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        </div>
+        <h3 class="feature-title">Actionable output</h3>
+        <p class="feature-desc">Clear recommendations: no action, monitor, evaluate alternatives, or migrate now. No ambiguity about next steps.</p>
+      </div>
+
+      <div class="feature-cell">
+        <div class="feature-icon">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h3 class="feature-title">Rich CLI output</h3>
+        <p class="feature-desc">Color-coded panels with detailed breakdowns. Designed to be readable at a glance in any terminal workflow.</p>
+      </div>
+
+      <div class="feature-cell">
+        <div class="feature-icon">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        </div>
+        <h3 class="feature-title">REST API</h3>
+        <p class="feature-desc">FastAPI backend for programmatic access. Integrate health scores into your CI pipeline or internal tooling.</p>
+      </div>
+
+      <div class="feature-cell">
+        <div class="feature-icon">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        </div>
+        <h3 class="feature-title">Multi-format parsing</h3>
+        <p class="feature-desc">Parses <code style="font-family:var(--font-mono);font-size:12px;color:var(--c-slate);">requirements.txt</code>, <code style="font-family:var(--font-mono);font-size:12px;color:var(--c-slate);">package.json</code>, and <code style="font-family:var(--font-mono);font-size:12px;color:var(--c-slate);">pyproject.toml</code> — Python and Node projects covered.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="signal-divider container"><div class="signal-pulse" style="animation-delay:-1s;"></div></div>
+
+<!-- HOW IT WORKS -->
+<section class="section how-section" id="how">
+  <div class="container">
+    <div class="how-header reveal">
+      <div class="label-tag" style="margin-bottom:20px;">Process</div>
+      <h2 class="section-title" style="text-align:center;">From repo URL<br>to <em>risk clarity.</em></h2>
+    </div>
+
+    <div class="how-steps">
+      <div class="how-steps-line"></div>
+
+      <div class="how-step reveal">
+        <div class="how-step-content right">
+          <div class="how-step-tag">step 01</div>
+          <h3 class="how-step-title">Scan repository</h3>
+          <p class="how-step-desc">Point DepWatch at any GitHub URL. It fetches and parses your dependency manifest — requirements.txt, package.json, or pyproject.toml.</p>
+        </div>
+        <div class="how-step-num">01</div>
+        <div class="how-step-content"></div>
+      </div>
+
+      <div class="how-step reveal reveal-delay-1">
+        <div class="how-step-content"></div>
+        <div class="how-step-num">02</div>
+        <div class="how-step-content">
+          <div class="how-step-tag">step 02</div>
+          <h3 class="how-step-title">Gather signals</h3>
+          <p class="how-step-desc">For each dependency, DepWatch queries the GitHub API — pulling commit recency, release dates, contributor counts, and issue activity.</p>
+        </div>
+      </div>
+
+      <div class="how-step reveal reveal-delay-2">
+        <div class="how-step-content right">
+          <div class="how-step-tag">step 03</div>
+          <h3 class="how-step-title">Score the risk</h3>
+          <p class="how-step-desc">A weighted scoring engine turns raw signals into a 0–10 risk number. Stale commits, solo maintainers, and abandoned releases all contribute.</p>
+        </div>
+        <div class="how-step-num">03</div>
+        <div class="how-step-content"></div>
+      </div>
+
+      <div class="how-step reveal reveal-delay-3">
+        <div class="how-step-content"></div>
+        <div class="how-step-num">04</div>
+        <div class="how-step-content">
+          <div class="how-step-tag">step 04</div>
+          <h3 class="how-step-title">Surface insights</h3>
+          <p class="how-step-desc">Rich terminal panels show every signal, the confidence level, and a clear recommendation. No raw data to interpret — just actionable output.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="signal-divider container"><div class="signal-pulse" style="animation-delay:-3s;"></div></div>
+
+<!-- SCORING -->
+<section class="section scoring-section" id="scoring">
+  <div class="container">
+    <div class="scoring-header reveal">
+      <div class="label-tag" style="margin-bottom:20px;">Methodology</div>
+      <h2 class="section-title">Transparent<br><em>scoring model.</em></h2>
+      <p class="section-body" style="margin-top:16px;">No black boxes. Every point in the risk score traces back to a specific, observable signal from the repository.</p>
+    </div>
+
+    <div class="scoring-layout">
+      <div class="score-table-wrap reveal">
+        <div class="score-table-head">Risk factor weights</div>
+        <div class="score-table-body">
+          <div class="score-table-row">
+            <span class="score-table-icon">⏱</span>
+            <span class="score-table-factor">No commits in 90+ days</span>
+            <span class="score-table-pts pts-add">+3</span>
+          </div>
+          <div class="score-table-row">
+            <span class="score-table-icon">📦</span>
+            <span class="score-table-factor">Releases stale 120+ days</span>
+            <span class="score-table-pts pts-add">+3</span>
+          </div>
+          <div class="score-table-row">
+            <span class="score-table-icon">🚫</span>
+            <span class="score-table-factor">No official releases ever</span>
+            <span class="score-table-pts pts-add">+1</span>
+          </div>
+          <div class="score-table-row">
+            <span class="score-table-icon">👤</span>
+            <span class="score-table-factor">Low contributor count (&lt;2)</span>
+            <span class="score-table-pts pts-add">+2</span>
+          </div>
+          <div class="score-table-row">
+            <span class="score-table-icon">🧊</span>
+            <span class="score-table-factor">Stagnant issues (50+, no activity)</span>
+            <span class="score-table-pts pts-add">+2</span>
+          </div>
+          <div class="score-table-row">
+            <span class="score-table-icon">👥</span>
+            <span class="score-table-factor">Large maintainer base (10+)</span>
+            <span class="score-table-pts pts-sub">−2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="confidence-cards reveal reveal-delay-1">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--c-text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;">Confidence levels</div>
+        <div class="confidence-card conf-high">
+          <div class="confidence-header">
+            <span class="confidence-level">High confidence</span>
+            <span class="confidence-signals">3+ signals agree</span>
+          </div>
+          <div class="confidence-bar"><div class="confidence-fill"></div></div>
+          <p class="confidence-desc">Multiple independent signals point the same direction. The risk assessment is reliable.</p>
+        </div>
+        <div class="confidence-card conf-med">
+          <div class="confidence-header">
+            <span class="confidence-level">Medium confidence</span>
+            <span class="confidence-signals">2 signals agree</span>
+          </div>
+          <div class="confidence-bar"><div class="confidence-fill"></div></div>
+          <p class="confidence-desc">Two signals align but others are neutral or absent. Treat this as an early warning.</p>
+        </div>
+        <div class="confidence-card conf-low">
+          <div class="confidence-header">
+            <span class="confidence-level">Low confidence</span>
+            <span class="confidence-signals">1 weak signal</span>
+          </div>
+          <div class="confidence-bar"><div class="confidence-fill"></div></div>
+          <p class="confidence-desc">Only one signal triggered. Worth monitoring, but not a clear risk signal yet.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="signal-divider container"><div class="signal-pulse"></div></div>
+
+<!-- OPEN SOURCE -->
+<section class="section oss-section" id="oss">
+  <div class="container">
+    <div class="oss-card reveal">
+      <div class="oss-inner">
+        <div class="oss-text">
+          <div class="label-tag" style="margin-bottom:24px;">Open Source</div>
+          <h2 class="section-title">Built in the<br>open. <em>Always.</em></h2>
+          <p class="oss-body">DepWatch is MIT-licensed and community-driven. The scoring methodology is visible, the code is readable, and contributions are welcome.</p>
+          <div class="oss-badges">
+            <span class="oss-badge">
+              <svg class="oss-badge-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              MIT License
+            </span>
+            <span class="oss-badge">
+              <svg class="oss-badge-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              GitHub hosted
+            </span>
+            <span class="oss-badge">
+              <svg class="oss-badge-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              Community driven
+            </span>
+            <span class="oss-badge">
+              <svg class="oss-badge-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              Python · FastAPI
+            </span>
+          </div>
+          <div class="oss-actions">
+            <a href="https://github.com/pranavkp71/DepWatch" class="btn-primary" target="_blank">View on GitHub</a>
+            <a href="https://github.com/pranavkp71/DepWatch/blob/main/CONTRIBUTING.md" class="btn-ghost" target="_blank">Contribute</a>
+          </div>
+        </div>
+        <div class="oss-visual">
+          <div class="contrib-label">Contribution activity</div>
+          <div class="contrib-graph" id="contrib-graph"></div>
+          <div style="margin-top:20px;padding:16px;background:var(--c-bg3);border-radius:10px;border:1px solid var(--c-border);">
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--c-text3);margin-bottom:10px;">QUICK START</div>
+            <div style="font-family:var(--font-mono);font-size:12px;line-height:2;">
+              <div><span style="color:var(--c-green);">$</span> <span style="color:var(--c-text2);">git clone github.com/pranavkp71/DepWatch</span></div>
+              <div><span style="color:var(--c-green);">$</span> <span style="color:var(--c-text2);">pip install -e ".[dev]"</span></div>
+              <div><span style="color:var(--c-green);">$</span> <span style="color:var(--c-text2);">depwatch scan &lt;repo-url&gt;</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-inner reveal">
+      <h2 class="cta-title">Stop flying blind<br>on dependencies.</h2>
+      <p class="cta-sub">One command. Full visibility. Know exactly what needs attention before it becomes a problem.</p>
+      <div class="cta-actions">
+        <a href="https://github.com/pranavkp71/DepWatch" class="btn-primary" target="_blank">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          Star on GitHub
+        </a>
+        <a href="https://pypi.org/project/depwatch-cli/" class="btn-ghost" target="_blank">
+          View on PyPI →
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container footer-inner">
+    <span class="footer-brand">DepWatch · MIT License</span>
+    <div class="footer-links">
+      <a href="https://github.com/pranavkp71/DepWatch" target="_blank">GitHub</a>
+      <a href="https://pypi.org/project/depwatch-cli/" target="_blank">PyPI</a>
+      <a href="https://github.com/pranavkp71/DepWatch/blob/main/CONTRIBUTING.md" target="_blank">Contributing</a>
+      <a href="https://github.com/pranavkp71/DepWatch/blob/main/LICENSE" target="_blank">License</a>
+    </div>
+    <span class="footer-tagline">Know when your deps start drifting.</span>
+  </div>
+</footer>
+
+<script>
+// ── CANVAS CONSTELLATION BACKGROUND ──
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let nodes = [], W, H, animFrame;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function initNodes() {
+  nodes = [];
+  const count = Math.floor((W * H) / 18000);
+  for (let i = 0; i < count; i++) {
+    nodes.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: (Math.random() - 0.5) * 0.25,
+      r: Math.random() * 1.5 + 0.5,
+      opacity: Math.random() * 0.5 + 0.2,
+      pulse: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function drawFrame() {
+  ctx.clearRect(0, 0, W, H);
+  const t = Date.now() / 1000;
+
+  nodes.forEach(n => {
+    n.x += n.vx;
+    n.y += n.vy;
+    n.pulse += 0.008;
+    if (n.x < 0 || n.x > W) n.vx *= -1;
+    if (n.y < 0 || n.y > H) n.vy *= -1;
+
+    const alpha = n.opacity * (0.7 + 0.3 * Math.sin(n.pulse));
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(90,171,122,${alpha})`;
+    ctx.fill();
+  });
+
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[i].x - nodes[j].x;
+      const dy = nodes[i].y - nodes[j].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 120) {
+        const alpha = (1 - dist / 120) * 0.18;
+        ctx.beginPath();
+        ctx.moveTo(nodes[i].x, nodes[i].y);
+        ctx.lineTo(nodes[j].x, nodes[j].y);
+        ctx.strokeStyle = `rgba(90,171,122,${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+  animFrame = requestAnimationFrame(drawFrame);
+}
+
+resize();
+initNodes();
+drawFrame();
+window.addEventListener('resize', () => { resize(); initNodes(); });
+
+// ── NAV SCROLL ──
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  navbar.classList.toggle('scrolled', window.scrollY > 20);
+});
+
+// ── COPY INSTALL ──
+function copyInstall() {
+  navigator.clipboard.writeText('pip install depwatch-cli');
+  const btn = document.querySelector('.hero-install-copy');
+  btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="var(--c-green)" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+  setTimeout(() => {
+    btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+  }, 1800);
+}
+
+// ── TERMINAL ANIMATION ──
+const terminalLines = [
+  { text: '$ depwatch scan https://github.com/fastapi/fastapi', type: 'cmd', delay: 400 },
+  { text: '  Fetching dependencies...', type: 'dim', delay: 900 },
+  { text: '  📦 Found 5 dependencies. Analyzing health...', type: 'section', delay: 1400 },
+  { text: '', type: 'spacer', delay: 1800 },
+  { text: '  🟢 4 healthy  🔴 1 risky', type: 'summary', delay: 2000 },
+  { text: '', type: 'spacer', delay: 2200 },
+  { text: '╭── pydantic ──────────────────╮', type: 'panel-open', delay: 2400 },
+  { text: '│ Status: Healthy  Risk: 0/10  │', type: 'panel-healthy', delay: 2550 },
+  { text: '│ Confidence: High             │', type: 'panel-body', delay: 2700 },
+  { text: '│ Last commit: 0 days ago      │', type: 'panel-body', delay: 2850 },
+  { text: '│ Contributors: 100+           │', type: 'panel-body', delay: 3000 },
+  { text: '│ Action: No action needed     │', type: 'panel-action-ok', delay: 3150 },
+  { text: '╰──────────────────────────────╯', type: 'panel-close', delay: 3300 },
+  { text: '', type: 'spacer', delay: 3450 },
+  { text: '╭── unmaintained-sdk ──────────╮', type: 'panel-open', delay: 3600 },
+  { text: '│ Status: Risky    Risk: 9/10  │', type: 'panel-risky', delay: 3750 },
+  { text: '│ Confidence: High             │', type: 'panel-body', delay: 3900 },
+  { text: '│ Last commit: 340 days ago    │', type: 'panel-body', delay: 4050 },
+  { text: '│ Contributors: 1              │', type: 'panel-body', delay: 4200 },
+  { text: '│ Action: Evaluate alternative │', type: 'panel-action-bad', delay: 4350 },
+  { text: '╰──────────────────────────────╯', type: 'panel-close', delay: 4500 },
+];
+
+function renderTerminal() {
+  const body = document.getElementById('terminal-body');
+  body.innerHTML = '';
+
+  terminalLines.forEach((line, i) => {
+    setTimeout(() => {
+      const div = document.createElement('div');
+      div.className = 't-line';
+      div.style.animationDelay = '0ms';
+
+      if (line.type === 'spacer') { div.innerHTML = '&nbsp;'; }
+      else if (line.type === 'cmd') {
+        div.innerHTML = `<span class="t-prompt">$ </span><span class="t-cmd">${line.text.slice(2)}</span>`;
+      }
+      else if (line.type === 'dim') { div.innerHTML = `<span class="t-dim">${line.text}</span>`; }
+      else if (line.type === 'section') { div.innerHTML = `<span class="t-section">${line.text}</span>`; }
+      else if (line.type === 'summary') { div.innerHTML = `<span style="font-weight:500;">${line.text}</span>`; }
+      else if (line.type === 'panel-open' || line.type === 'panel-close') {
+        div.innerHTML = `<span style="color:var(--c-text3);">${line.text}</span>`;
+      }
+      else if (line.type === 'panel-healthy') {
+        div.innerHTML = `<span style="color:var(--c-text3);">│ </span><span class="t-healthy t-bold">${line.text.slice(2, -2)}</span><span style="color:var(--c-text3);"> │</span>`;
+      }
+      else if (line.type === 'panel-risky') {
+        div.innerHTML = `<span style="color:var(--c-text3);">│ </span><span class="t-risky t-bold">${line.text.slice(2, -2)}</span><span style="color:var(--c-text3);"> │</span>`;
+      }
+      else if (line.type === 'panel-body') {
+        div.innerHTML = `<span style="color:var(--c-text3);">│ </span><span class="t-dim">${line.text.slice(2, -2)}</span><span style="color:var(--c-text3);"> │</span>`;
+      }
+      else if (line.type === 'panel-action-ok') {
+        div.innerHTML = `<span style="color:var(--c-text3);">│ </span><span class="t-healthy">${line.text.slice(2, -2)}</span><span style="color:var(--c-text3);"> │</span>`;
+      }
+      else if (line.type === 'panel-action-bad') {
+        div.innerHTML = `<span style="color:var(--c-text3);">│ </span><span class="t-warning">${line.text.slice(2, -2)}</span><span style="color:var(--c-text3);"> │</span>`;
+      }
+
+      body.appendChild(div);
+
+      if (i === terminalLines.length - 1) {
+        setTimeout(() => {
+          const cursor = document.createElement('div');
+          cursor.className = 't-line';
+          cursor.style.animationDelay = '0ms';
+          cursor.innerHTML = `<span class="t-prompt">$ </span><span class="t-cursor"></span>`;
+          body.appendChild(cursor);
+        }, 300);
+      }
+    }, line.delay);
+  });
+}
+
+// Start terminal after a brief delay
+setTimeout(renderTerminal, 600);
+
+// ── INTERSECTION OBSERVER ──
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      // Trigger decay bar animations
+      e.target.querySelectorAll('.decay-fill').forEach(fill => {
+        const w = fill.getAttribute('data-width');
+        if (w) fill.style.width = w + '%';
+      });
+      // Trigger confidence bar animations
+      e.target.querySelectorAll('.confidence-fill').forEach(fill => {
+        fill.style.width = fill.style.width; // trigger
+      });
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Also observe the decay list parent to trigger bar animations
+const decayList = document.getElementById('decay-list');
+if (decayList) {
+  const decayObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.decay-fill').forEach(fill => {
+          const w = fill.getAttribute('data-width');
+          if (w) fill.style.width = w + '%';
+        });
+      }
+    });
+  }, { threshold: 0.2 });
+  decayObs.observe(decayList);
+}
+
+// Observe confidence bars
+document.querySelectorAll('.confidence-card').forEach(card => {
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const fill = e.target.querySelector('.confidence-fill');
+        if (fill) {
+          const target = e.target.classList.contains('conf-high') ? '90%' :
+                         e.target.classList.contains('conf-med') ? '55%' : '25%';
+          fill.style.width = target;
+        }
+      }
+    });
+  }, { threshold: 0.3 });
+  obs.observe(card);
+});
+
+// ── CONTRIB GRAPH ──
+function buildContribGraph() {
+  const graph = document.getElementById('contrib-graph');
+  if (!graph) return;
+  const weeks = 52;
+  const intensities = [0,0,0,1,0,0,2,1,0,0,3,2,1,0,0,1,2,0,3,3,2,1,0,0,1,2,3,2,1,0,2,3,4,3,2,1,0,1,2,3,3,2,1,0,1,2,2,3,3,2,1,1];
+  const colors = ['var(--c-bg4)','rgba(90,171,122,0.15)','rgba(90,171,122,0.35)','rgba(90,171,122,0.6)','rgba(90,171,122,0.85)'];
+
+  intensities.slice(0, weeks).forEach((level, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'contrib-cell';
+    cell.style.background = colors[Math.min(level, 4)];
+    cell.style.animationDelay = i * 15 + 'ms';
+    graph.appendChild(cell);
+  });
+}
+buildContribGraph();
+
+// ── SMOOTH SCROLL ──
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+</body>
+</html>
