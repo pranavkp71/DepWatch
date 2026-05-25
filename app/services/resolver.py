@@ -1,6 +1,5 @@
 """Recursive dependency tree resolver using PyPI metadata."""
 
-import asyncio
 import collections
 from typing import List
 
