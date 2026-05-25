@@ -190,7 +190,7 @@ def scan_command(
 @app.command(name="version")
 def version_command() -> None:
     """Show the current depwatch version."""
-    console.print("depwatch [bold cyan]v0.1.0[/bold cyan]")
+    console.print("depwatch [bold cyan]v0.2.0[/bold cyan]")
 
 
 def main():

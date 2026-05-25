@@ -16,7 +16,7 @@ from app.services import (
 app = FastAPI(
     title="DepWatch",
     description="Dependency Health Scanner — Are your dependencies risky right now?",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 

@@ -4,7 +4,7 @@ All notable changes to DepWatch will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.2.0] — 2026-05-25
 
 ### Added
 - Transitive Dependency Analysis (MVP)
