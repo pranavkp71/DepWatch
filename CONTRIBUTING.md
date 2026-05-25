@@ -39,14 +39,6 @@ ruff format .
 5. Commit with a clear message (`git commit -m "feat: add X"`)
 6. Push and open a Pull Request
 
-## Commit Style
-
-We use conventional commits:
-- `feat:` — new feature
-- `fix:` — bug fix
-- `docs:` — documentation only
-- `chore:` — maintenance / tooling
-- `refactor:` — code restructuring
 
 ## Code of Conduct
 

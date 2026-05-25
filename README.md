@@ -8,6 +8,7 @@ DepWatch scans a GitHub repository, extracts its dependencies, and delivers a tr
 
 - **Multi-signal analysis** — commits, releases, contributors, and issue activity
 - **Risk score (0–10)** — quantifiable health metric for every dependency
+- **Transitive analysis** — recursively scan nested dependencies (MVP)
 - **Confidence levels** — High / Medium / Low based on signal agreement
 - **Actionable recommendations** — clear guidance on what to do next
 - **Rich CLI output** — color-coded panels with detailed breakdowns
@@ -47,6 +48,14 @@ This creates `dist/dep_watch-X.Y.Z.tar.gz` and `dist/dep_watch-X.Y.Z-py3-none-an
 depwatch scan https://github.com/fastapi/fastapi
 ```
 
+### Transitive Dependencies
+
+Analyze nested dependencies with depth control:
+
+```bash
+depwatch scan https://github.com/fastapi/fastapi --transitive --depth 2
+```
+
 ### GitHub Token (Recommended)
 
 Set a token to avoid rate limits:
@@ -70,12 +79,11 @@ uvicorn app.main:app --reload
 ## Sample Output
 
 ```
-📦 Found 5 dependencies. Analyzing health...
-
-🟢 5 healthy
+📦 Found 2 direct and 3 transitive dependencies. Analyzing health...
 
 ╭─────────── pydantic ────────────╮
 │ Status: Healthy                 │
+│ Type: [direct]                  │
 │ Risk Score: 0/10                │
 │ Confidence: High                │
 │                                 │
@@ -83,11 +91,23 @@ uvicorn app.main:app --reload
 │   • Last commit 0 days ago      │
 │   • Last release 15 days ago    │
 │   • Contributor count: 100      │
-│   • Open issues: 560            │
-│   • 100 issues updated recently │
 │                                 │
 │ Action: No action needed        │
 ╰─────────────────────────────────╯
+
+╭───────── some-nested-pkg ─────────╮
+│ Status: Risky                    │
+│ Type: [transitive]               │
+│ Path: fastapi → pydantic → pkg   │
+│ Risk Score: 8/10                 │
+│ Confidence: High                 │
+│                                  │
+│ Signals:                         │
+│   • Last commit 400 days ago     │
+│   • No official releases found   │
+│                                  │
+│ Action: Consider replacing this  │
+╰──────────────────────────────────╯
 ```
 
 ## How Scoring Works
