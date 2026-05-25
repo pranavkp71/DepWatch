@@ -41,7 +41,7 @@ class ScoringEngine:
                 status=HealthStatus.UNKNOWN,
                 reason="Repository not found",
                 confidence="Low",
-                recommendation="Verify repository URL"
+                recommendation="Verify repository URL",
             )
 
         now = datetime.now(timezone.utc)
@@ -86,10 +86,17 @@ class ScoringEngine:
         healthy_contributors = signals.contributor_count >= 5
 
         # Sum them up
-        strong_signals = sum([
-            no_commits_90d, no_release_120d, low_contributors, stagnant_issues,
-            recent_commit_30d, recent_release_60d, healthy_contributors
-        ])
+        strong_signals = sum(
+            [
+                no_commits_90d,
+                no_release_120d,
+                low_contributors,
+                stagnant_issues,
+                recent_commit_30d,
+                recent_release_60d,
+                healthy_contributors,
+            ]
+        )
 
         if strong_signals >= 3:
             review.confidence = "High"

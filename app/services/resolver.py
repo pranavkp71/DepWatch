@@ -49,10 +49,7 @@ class TransitiveDependencyResolver:
 
             # Create the node
             node = DependencyNode(
-                name=name,
-                depth=depth,
-                parent_chain=parent_chain,
-                is_direct=(depth == 0)
+                name=name, depth=depth, parent_chain=parent_chain, is_direct=(depth == 0)
             )
 
             # If we haven't reached max depth, fetch children

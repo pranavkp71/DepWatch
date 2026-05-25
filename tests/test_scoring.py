@@ -27,7 +27,7 @@ def test_risk_mitigation():
         name="large-lib",
         repo_url="http://github.com/test/large",
         last_commit_date=stale_date,
-        contributor_count=20, # Large maintainer base
+        contributor_count=20,  # Large maintainer base
     )
     review = ScoringEngine.classify(signals)
     # Stale commits (+3) + No release (+1) = 4. Mitigation (-2) = 2.

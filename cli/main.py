@@ -71,6 +71,7 @@ async def run_scan(repo_url: str, transitive: bool = False, depth: int = 3):
     else:
         # Wrap direct deps into DependencyNode-like structure for the loop
         from app.services import DependencyNode
+
         all_deps = [DependencyNode(name=d) for d in dependencies]
         console.print(f"📦 Found [bold]{len(all_deps)}[/bold] dependencies. Analyzing health...")
 
@@ -143,37 +144,43 @@ async def run_scan(repo_url: str, transitive: bool = False, depth: int = 3):
 
         # Add dependency path for transitive deps if not healthy
         if not node.is_direct:
-            panel_items.append(Text.assemble(("\nPath: ", "bold"), (node.dependency_path, "dim italic")))
+            panel_items.append(
+                Text.assemble(("\nPath: ", "bold"), (node.dependency_path, "dim italic"))
+            )
 
-        panel_items.extend([
-            Text("\nSignals:", style="bold"),
-            signal_text,
-            Text.assemble(
-                ("Action: ", "bold"),
-                (
-                    f"{review.recommendation}",
-                    "italic yellow"
-                    if review.status != HealthStatus.HEALTHY
-                    else "dim green",
+        panel_items.extend(
+            [
+                Text("\nSignals:", style="bold"),
+                signal_text,
+                Text.assemble(
+                    ("Action: ", "bold"),
+                    (
+                        f"{review.recommendation}",
+                        "italic yellow" if review.status != HealthStatus.HEALTHY else "dim green",
+                    ),
                 ),
-            ),
-        ])
+            ]
+        )
 
         panel_content = Group(*panel_items)
 
-        console.print(Panel(
-            panel_content,
-            title=f"[bold]{dep_name}[/bold]",
-            border_style=color,
-            expand=False,
-        ))
+        console.print(
+            Panel(
+                panel_content,
+                title=f"[bold]{dep_name}[/bold]",
+                border_style=color,
+                expand=False,
+            )
+        )
         console.print()
 
 
 @app.command(name="scan")
 def scan_command(
     repo_url: str = typer.Argument(..., help="GitHub repository URL to scan"),
-    transitive: bool = typer.Option(False, "--transitive", "-t", help="Analyze transitive dependencies"),
+    transitive: bool = typer.Option(
+        False, "--transitive", "-t", help="Analyze transitive dependencies"
+    ),
     depth: int = typer.Option(3, "--depth", "-d", help="Maximum depth for transitive analysis"),
 ) -> None:
     """Scan a GitHub repository and report dependency health."""
