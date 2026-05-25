@@ -4,8 +4,14 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, HttpUrl
 
 from app.github import GitHubClient
+from app.pypi import PyPIClient
 from app.scoring import HealthStatus, ScoringEngine
-from app.services import DependencyAnalyzer, DependencyScanner
+from app.services import (
+    DependencyAnalyzer,
+    DependencyNode,
+    DependencyScanner,
+    TransitiveDependencyResolver,
+)
 
 app = FastAPI(
     title="DepWatch",
@@ -16,6 +22,8 @@ app = FastAPI(
 
 class ScanRequest(BaseModel):
     repo_url: HttpUrl
+    transitive: bool = False
+    depth: int = 3
 
 
 class DependencyReport(BaseModel):
@@ -26,6 +34,8 @@ class DependencyReport(BaseModel):
     signals: List[str]
     recommendation: str
     repo_url: Optional[str] = None
+    is_direct: bool = True
+    dependency_path: Optional[str] = None
 
 
 class ScanResponse(BaseModel):
@@ -61,8 +71,17 @@ async def scan_repository(request: ScanRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching dependencies: {e}")
 
+    all_nodes = []
+    if request.transitive:
+        pypi_client = PyPIClient()
+        resolver = TransitiveDependencyResolver(pypi_client, max_depth=request.depth)
+        all_nodes = await resolver.resolve(dependencies)
+    else:
+        all_nodes = [DependencyNode(name=d) for d in dependencies]
+
     reports = []
-    for dep_name in dependencies:
+    for node in all_nodes:
+        dep_name = node.name
         try:
             signals = await analyzer.analyze(dep_name)
             review = engine.classify(signals)
@@ -74,7 +93,9 @@ async def scan_repository(request: ScanRequest):
                     confidence=review.confidence,
                     signals=review.signals,
                     recommendation=review.recommendation,
-                    repo_url=signals.repo_url
+                    repo_url=signals.repo_url,
+                    is_direct=node.is_direct,
+                    dependency_path=node.dependency_path if not node.is_direct else None,
                 )
             )
         except Exception:
@@ -85,7 +106,9 @@ async def scan_repository(request: ScanRequest):
                     risk_score=0,
                     confidence="Low",
                     signals=["Analysis failed"],
-                    recommendation="Retry later"
+                    recommendation="Retry later",
+                    is_direct=node.is_direct,
+                    dependency_path=node.dependency_path if not node.is_direct else None,
                 )
             )
 
