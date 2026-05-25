@@ -21,6 +21,14 @@ DepWatch scans a GitHub repository, extracts its dependencies, and delivers a tr
 pip install depwatch-cli
 ```
 
+### Using pipx (Recommended for CLI)
+
+For a global installation without manual virtual environments, use `pipx`:
+
+```bash
+pipx install depwatch-cli
+```
+
 ### From Source
 
 ```bash
